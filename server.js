@@ -4,10 +4,20 @@ const socketIO = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+
+// Socket.IO avec CORS sécurisé pour ton domaine prod et chemin /socket.io
 const io = socketIO(server, {
   cors: {
-    origin: "*"
-  }
+    origin: "https://livebeautyofficial.com", // autorise uniquement ce domaine
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  path: "/socket.io"
+});
+
+// Route test simple
+app.get('/', (req, res) => {
+  res.send('✅ Serveur WebRTC Socket.IO est en ligne');
 });
 
 let broadcaster;
@@ -18,11 +28,13 @@ io.on("connection", socket => {
   socket.on("broadcaster", () => {
     broadcaster = socket.id;
     socket.broadcast.emit("broadcaster");
+    console.log(`Broadcaster défini: ${broadcaster}`);
   });
 
   socket.on("watcher", () => {
     if (broadcaster) {
       socket.to(broadcaster).emit("watcher", socket.id);
+      console.log(`Watcher connecté: ${socket.id}`);
     }
   });
 
@@ -40,7 +52,17 @@ io.on("connection", socket => {
 
   socket.on("disconnect", () => {
     socket.broadcast.emit("disconnectPeer", socket.id);
+    console.log(`Client déconnecté: ${socket.id}`);
+    // Si le broadcaster se déconnecte, on réinitialise la variable
+    if (socket.id === broadcaster) {
+      broadcaster = null;
+      console.log("Broadcaster déconnecté, variable réinitialisée");
+    }
   });
 });
 
-server.listen(3000, () => console.log("✅ Serveur de signalisation WebRTC lancé sur http://localhost:3000"));
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+  console.log(`✅ Serveur de signalisation WebRTC lancé sur http://localhost:${PORT}`);
+});
