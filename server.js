@@ -8,7 +8,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé pour ton domaine prod et chemin /socket.io
 const io = socketIO(server, {
   cors: {
-    origin: "https://livebeautyofficial.com", // autorise uniquement ce domaine
+    origin: "https://livebeautyofficial.com/", // autorise uniquement ce domaine
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -37,7 +37,10 @@ io.on("connection", socket => {
       console.log(`Watcher connecté: ${socket.id}`);
     }
   });
-
+socket.on("chat-message", (data) => {
+  // Rediffuse le message à tous les clients connectés
+  io.emit("chat-message", data);
+});
   socket.on("offer", (id, message) => {
     socket.to(id).emit("offer", socket.id, message);
   });
@@ -60,6 +63,7 @@ io.on("connection", socket => {
     }
   });
 });
+
 
 const PORT = process.env.PORT || 3000;
 
