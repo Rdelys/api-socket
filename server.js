@@ -8,7 +8,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé pour ton domaine prod et chemin /socket.io
 const io = socketIO(server, {
   cors: {
-    origin: "http://localhost:3000", // autorise uniquement ce domaine
+    origin: "http://livebeautyofficial.com/", // autorise uniquement ce domaine
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -23,6 +23,7 @@ app.get('/', (req, res) => {
 
 let broadcaster;
 let typingUsers = {};
+let viewers = {};
 
 io.on("connection", socket => {
   console.log("Client connecté: " + socket.id);
@@ -42,12 +43,27 @@ socket.on("typing", (data) => {
     socket.broadcast.emit("stopTyping");
   });
 
-  socket.on("watcher", () => {
-    if (broadcaster) {
-      socket.to(broadcaster).emit("watcher", socket.id);
-      console.log(`Watcher connecté: ${socket.id}`);
+socket.on('watcher', (data) => {
+    if (!data || !data.pseudo) {
+        console.warn(`Watcher ${socket.id} connecté sans pseudo, utilisation 'Anonyme'`);
+        data = { pseudo: 'Anonyme' };
     }
-  });
+    
+    viewers[socket.id] = data.pseudo;
+    io.emit('viewer-connected', {
+        socketId: socket.id,
+        pseudo: data.pseudo
+    });
+
+    if (broadcaster) {
+        socket.to(broadcaster).emit("watcher", socket.id);
+        console.log(`Watcher connecté: ${socket.id} (${data.pseudo})`);
+    }
+});
+
+  socket.on('request-viewers', () => {
+        socket.emit('current-viewers', viewers);
+    });
 socket.on("chat-message", (data) => {
   // Rediffuse le message à tous les clients connectés
   io.emit("chat-message", data);
@@ -69,7 +85,12 @@ socket.on("jeton-sent", (data) => {
   socket.on("candidate", (id, message) => {
     socket.to(id).emit("candidate", socket.id, message);
   });
-
+socket.on('watcher-disconnected', () => {
+        if (viewers[socket.id]) {
+            io.emit('viewer-disconnected', socket.id);
+            delete viewers[socket.id];
+        }
+    });
   socket.on("disconnect", () => {
     socket.broadcast.emit("disconnectPeer", socket.id);
     console.log(`Client déconnecté: ${socket.id}`);
@@ -78,6 +99,12 @@ socket.on("jeton-sent", (data) => {
       broadcaster = null;
       console.log("Broadcaster déconnecté, variable réinitialisée");
     }
+
+    if (viewers[socket.id]) {
+            io.emit('viewer-disconnected', socket.id);
+            delete viewers[socket.id];
+        }
+
 
     if (typingUsers[socket.id]) {
       delete typingUsers[socket.id];
