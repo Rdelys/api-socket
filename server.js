@@ -41,6 +41,12 @@ socket.on("chat-message", (data) => {
   // Rediffuse le message à tous les clients connectés
   io.emit("chat-message", data);
 });
+
+socket.on("jeton-sent", (data) => {
+    console.log("Jeton reçu du client:", data); // Debug serveur
+    io.emit("jeton-sent", data);
+});
+
   socket.on("offer", (id, message) => {
     socket.to(id).emit("offer", socket.id, message);
   });
