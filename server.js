@@ -8,12 +8,13 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé pour ton domaine prod et chemin /socket.io
 const io = socketIO(server, {
   cors: {
-    origin: "https://livebeautyofficial.com/", // autorise uniquement ce domaine
+    origin: "http://localhost:3000", // autorise uniquement ce domaine
     methods: ["GET", "POST"],
     credentials: true
   },
   path: "/socket.io"
 });
+
 
 // Route test simple
 app.get('/', (req, res) => {
@@ -21,6 +22,7 @@ app.get('/', (req, res) => {
 });
 
 let broadcaster;
+let typingUsers = {};
 
 io.on("connection", socket => {
   console.log("Client connecté: " + socket.id);
@@ -29,6 +31,15 @@ io.on("connection", socket => {
     broadcaster = socket.id;
     socket.broadcast.emit("broadcaster");
     console.log(`Broadcaster défini: ${broadcaster}`);
+  });
+socket.on("typing", (data) => {
+    typingUsers[socket.id] = data;
+    socket.broadcast.emit("typing", data);
+  });
+
+  socket.on("stopTyping", () => {
+    delete typingUsers[socket.id];
+    socket.broadcast.emit("stopTyping");
   });
 
   socket.on("watcher", () => {
@@ -66,6 +77,11 @@ socket.on("jeton-sent", (data) => {
     if (socket.id === broadcaster) {
       broadcaster = null;
       console.log("Broadcaster déconnecté, variable réinitialisée");
+    }
+
+    if (typingUsers[socket.id]) {
+      delete typingUsers[socket.id];
+      socket.broadcast.emit("stopTyping");
     }
   });
 });
