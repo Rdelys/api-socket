@@ -8,7 +8,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé pour ton domaine prod et chemin /socket.io
 const io = socketIO(server, {
   cors: {
-    origin: "http://livebeautyofficial.com/", // autorise uniquement ce domaine
+    origin: "https://livebeautyofficial.com/", // autorise uniquement ce domaine
     methods: ["GET", "POST"],
     credentials: true
   },
