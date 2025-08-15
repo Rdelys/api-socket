@@ -42,6 +42,9 @@ socket.on("typing", (data) => {
     delete typingUsers[socket.id];
     socket.broadcast.emit("stopTyping");
   });
+socket.on("surprise-sent", (data) => {
+    io.emit("surprise-sent", data);
+});
 
 socket.on('watcher', (data) => {
     if (!data || !data.pseudo) {
