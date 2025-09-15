@@ -5,121 +5,150 @@ const socketIO = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// Socket.IO avec CORS sécurisé pour ton domaine prod et chemin /socket.io
+// Socket.IO avec CORS sécurisé
 const io = socketIO(server, {
   cors: {
-    origin: "https://livebeautyofficial.com/", // autorise uniquement ce domaine
+    origin: "https://livebeautyofficial.com", // ✅ ton domaine à remplacer en prod
     methods: ["GET", "POST"],
     credentials: true
   },
   path: "/socket.io"
 });
 
-
-// Route test simple
 app.get('/', (req, res) => {
   res.send('✅ Serveur WebRTC Socket.IO est en ligne');
 });
 
-let broadcaster;
-let typingUsers = {};
-let viewers = {};
+/**
+ * États du serveur
+ */
+let broadcasters = {};   // { roomId : socketId }
+let typingUsers  = {};   // { socketId : data }
+let viewers      = {};   // { socketId : { room, pseudo } }
 
 io.on("connection", socket => {
-  console.log("Client connecté: " + socket.id);
+  console.log("Client connecté:", socket.id);
 
-  socket.on("broadcaster", () => {
-    broadcaster = socket.id;
-    socket.broadcast.emit("broadcaster");
-    console.log(`Broadcaster défini: ${broadcaster}`);
-  });
-socket.on("typing", (data) => {
-    typingUsers[socket.id] = data;
-    socket.broadcast.emit("typing", data);
+  /**
+   * Broadcaster (public ou privé)
+   */
+  socket.on("broadcaster", (data = {}) => {
+    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+    broadcasters[room] = socket.id;
+    socket.join(room);
+    socket.to(room).emit("broadcaster");
+    console.log(`🎥 Broadcaster défini pour la room ${room} : ${socket.id}`);
   });
 
-  socket.on("stopTyping", () => {
-    delete typingUsers[socket.id];
-    socket.broadcast.emit("stopTyping");
-  });
-socket.on("surprise-sent", (data) => {
-    io.emit("surprise-sent", data);
-});
+  /**
+   * Watcher (public ou privé)
+   */
+  socket.on("watcher", (data = {}) => {
+    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+    const pseudo = data.pseudo || "Anonyme";
 
-socket.on('watcher', (data) => {
-    if (!data || !data.pseudo) {
-        console.warn(`Watcher ${socket.id} connecté sans pseudo, utilisation 'Anonyme'`);
-        data = { pseudo: 'Anonyme' };
+    socket.join(room);
+    viewers[socket.id] = { room, pseudo };
+
+    // Notifie les autres clients dans cette room
+    socket.to(room).emit("viewer-connected", { socketId: socket.id, pseudo });
+    console.log(`👀 Watcher ${pseudo} a rejoint la room ${room}`);
+
+    // Informe le broadcaster
+    if (broadcasters[room]) {
+      socket.to(broadcasters[room]).emit("watcher", socket.id);
     }
-    
-    viewers[socket.id] = data.pseudo;
-    io.emit('viewer-connected', {
-        socketId: socket.id,
-        pseudo: data.pseudo
-    });
+  });
 
-    if (broadcaster) {
-        socket.to(broadcaster).emit("watcher", socket.id);
-        console.log(`Watcher connecté: ${socket.id} (${data.pseudo})`);
-    }
-});
+  /**
+   * Chat (public ou privé)
+   */
+  socket.on("chat-message", (data) => {
+    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+    io.to(room).emit("chat-message", data);
+  });
 
-  socket.on('request-viewers', () => {
-        socket.emit('current-viewers', viewers);
-    });
-socket.on("chat-message", (data) => {
-  // Rediffuse le message à tous les clients connectés
-  io.emit("chat-message", data);
-});
+  /**
+   * Jetons envoyés
+   */
+  socket.on("jeton-sent", (data) => {
+    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+    io.to(room).emit("jeton-sent", data);
+  });
 
-socket.on("jeton-sent", (data) => {
-    console.log("Jeton reçu du client:", data); // Debug serveur
-    io.emit("jeton-sent", data);
-});
+  /**
+   * Surprise envoyée
+   */
+  socket.on("surprise-sent", (data) => {
+    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+    io.to(room).emit("surprise-sent", data);
+  });
 
+  /**
+   * WebRTC
+   */
   socket.on("offer", (id, message) => {
     socket.to(id).emit("offer", socket.id, message);
   });
-
   socket.on("answer", (id, message) => {
     socket.to(id).emit("answer", socket.id, message);
   });
-
   socket.on("candidate", (id, message) => {
     socket.to(id).emit("candidate", socket.id, message);
   });
-socket.on('watcher-disconnected', () => {
-        if (viewers[socket.id]) {
-            io.emit('viewer-disconnected', socket.id);
-            delete viewers[socket.id];
-        }
-    });
+
+  /**
+   * Typing
+   */
+  socket.on("typing", (data) => {
+    typingUsers[socket.id] = data;
+    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+    socket.to(room).emit("typing", data);
+  });
+
+  socket.on("stopTyping", (data = {}) => {
+    delete typingUsers[socket.id];
+    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+    socket.to(room).emit("stopTyping");
+  });
+
+  /**
+   * Déconnexion
+   */
   socket.on("disconnect", () => {
-    socket.broadcast.emit("disconnectPeer", socket.id);
-    console.log(`Client déconnecté: ${socket.id}`);
-    // Si le broadcaster se déconnecte, on réinitialise la variable
-    if (socket.id === broadcaster) {
-      broadcaster = null;
-      console.log("Broadcaster déconnecté, variable réinitialisée");
-    }
+    console.log(`❌ Client déconnecté: ${socket.id}`);
 
+    // Si c’était un viewer → informer uniquement sa room
     if (viewers[socket.id]) {
-            io.emit('viewer-disconnected', socket.id);
-            delete viewers[socket.id];
-        }
-
-
-    if (typingUsers[socket.id]) {
-      delete typingUsers[socket.id];
-      socket.broadcast.emit("stopTyping");
+      const { room } = viewers[socket.id];
+      io.to(room).emit("viewer-disconnected", socket.id);
+      delete viewers[socket.id];
     }
+
+    // Nettoyer typing
+    if (typingUsers[socket.id]) {
+      const { showPriveId } = typingUsers[socket.id];
+      const room = showPriveId ? `prive-${showPriveId}` : "public";
+      delete typingUsers[socket.id];
+      socket.to(room).emit("stopTyping");
+    }
+
+    // Si c’était un broadcaster → supprimer sa room
+    Object.entries(broadcasters).forEach(([room, broadcasterId]) => {
+      if (broadcasterId === socket.id) {
+        delete broadcasters[room];
+        console.log(`⚠️ Broadcaster déconnecté pour room ${room}`);
+      }
+    });
+
+    socket.broadcast.emit("disconnectPeer", socket.id);
   });
 });
 
-
+/**
+ * Lancement du serveur
+ */
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Serveur lancé sur http://0.0.0.0:${PORT}`);
 });
-
