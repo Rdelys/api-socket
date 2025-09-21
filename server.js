@@ -4,7 +4,7 @@ const socketIO = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-
+// wss://livebeautyofficial.com http://localhost:3000/
 // Socket.IO avec CORS sécurisé
 const io = socketIO(server, {
   cors: {
@@ -32,13 +32,35 @@ io.on("connection", socket => {
   /**
    * Broadcaster (public ou privé)
    */
-  socket.on("broadcaster", (data = {}) => {
-    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
-    broadcasters[room] = socket.id;
-    socket.join(room);
-    socket.to(room).emit("broadcaster");
-    console.log(`🎥 Broadcaster défini pour la room ${room} : ${socket.id}`);
-  });
+socket.on("broadcaster", (data = {}) => {
+  const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+  broadcasters[room] = socket.id;
+  socket.join(room);
+  socket.to(room).emit("broadcaster");
+
+  if (data.showPriveId && data.date && data.startTime && data.endTime) {
+    // Construire datetime fin avec date + heure
+    const [endH, endM, endS] = data.endTime.split(":").map(Number);
+    const [year, month, day] = data.date.split("-").map(Number); // format YYYY-MM-DD
+
+    const endDate = new Date(year, month - 1, day, endH || 0, endM || 0, endS || 0, 0);
+
+    io.to(room).emit("show-time", {
+      showPriveId: data.showPriveId,
+      date: data.date,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      endTimestamp: endDate.getTime()
+    });
+
+    console.log(`⏱ Horaire show privé ${room}: ${data.date} ${data.startTime} → ${data.endTime} (ts=${endDate.getTime()})`);
+  }
+
+  console.log(`🎥 Broadcaster défini pour la room ${room} : ${socket.id}`);
+});
+
+
+
 
   /**
    * Watcher (public ou privé)
