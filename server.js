@@ -8,7 +8,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé
 const io = socketIO(server, {
   cors: {
-    origin: "https://livebeautyofficial.com", // ✅ ton domaine à remplacer en prod
+    origin: "http://localhost:3000/", // ✅ ton domaine à remplacer en prod
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -59,6 +59,70 @@ socket.on("broadcaster", (data = {}) => {
   console.log(`🎥 Broadcaster défini pour la room ${room} : ${socket.id}`);
 });
 
+/**
+ * Passage en show privé
+ */
+let privateOwner = null; // socket.id du client qui a déclenché le privé
+let privateActive = false;
+
+io.on("connection", (socket) => {
+
+  socket.on("switch-to-private", ({ pseudo }) => {
+    privateOwner = socket.id;
+    privateActive = true;
+
+    for (let [id, viewer] of Object.entries(viewers)) {
+      if (viewer.room === "public" && id !== socket.id) {
+        io.to(id).emit("redirect-dashboard");
+        io.sockets.sockets.get(id)?.leave("public");
+        delete viewers[id];
+      }
+    }
+
+    io.emit("chat-message", {
+      pseudo: "Système",
+      message: `🚪 ${pseudo} a lancé un show privée (les autres ont été expulsés).`
+    });
+  });
+
+  socket.on("cancel-private", ({ pseudo }) => {
+    privateOwner = null;
+    privateActive = false;
+
+    io.emit("chat-message", {
+      pseudo: "Système",
+      message: `❌ ${pseudo} a annulé son show privée.`
+    });
+  });
+
+  // Quand un client tente de rejoindre le public
+  socket.on("join-public", ({ pseudo }) => {
+    if (privateActive && socket.id !== privateOwner) {
+      // Refusé → redirigé
+      io.to(socket.id).emit("redirect-dashboard");
+    } else {
+      socket.join("public");
+      viewers[socket.id] = { pseudo, room: "public" };
+    }
+  });
+
+});
+
+
+/**
+ * Annulation du show privé
+ */
+socket.on("cancel-private", ({ pseudo }) => {
+  console.log("❌ Annulation du show privée par", pseudo);
+
+  io.emit("chat-message", {
+    pseudo: "Système",
+    message: `❌ ${pseudo} a annulé son show privée.`
+  });
+
+  // On supprime l’état "public-private"
+  delete broadcasters["public-private"];
+});
 
 
 
