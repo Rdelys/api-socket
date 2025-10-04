@@ -8,7 +8,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé
 const io = socketIO(server, {
   cors: {
-    origin: "http://localhost:3000/", // ✅ ton domaine à remplacer en prod
+    origin: "https://livebeautyofficial.com/", // ✅ ton domaine à remplacer en prod
     methods: ["GET", "POST"],
     credentials: true
   },
