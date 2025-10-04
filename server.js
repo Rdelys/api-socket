@@ -68,32 +68,45 @@ let privateActive = false;
 io.on("connection", (socket) => {
 
   socket.on("switch-to-private", ({ pseudo }) => {
-    privateOwner = socket.id;
-    privateActive = true;
+  // Le modèle qui déclenche devient le propriétaire du show privé
+  privateOwner = socket.id;
+  privateActive = true;
 
-    for (let [id, viewer] of Object.entries(viewers)) {
-      if (viewer.room === "public" && id !== socket.id) {
-        io.to(id).emit("redirect-dashboard");
-        io.sockets.sockets.get(id)?.leave("public");
-        delete viewers[id];
-      }
+  for (let [id, viewer] of Object.entries(viewers)) {
+    // Expulser seulement les spectateurs du show public, pas le modèle
+    if (viewer.room === "public" && id !== socket.id) {
+      io.to(id).emit("redirect-dashboard"); // éjection
+      io.sockets.sockets.get(id)?.leave("public"); // quitter la room publique
+      delete viewers[id]; // nettoyer
     }
+  }
 
-    io.emit("chat-message", {
-      pseudo: "Système",
-      message: `🚪 ${pseudo} a lancé un show privée (les autres ont été expulsés).`
-    });
+  // Message système uniquement aux sockets restants dans "public"
+  // (donc pas à tout le monde, sinon même le modèle verrait "expulsé")
+  io.to("public").emit("chat-message", {
+    pseudo: "Système",
+    message: `🚪 ${pseudo} a lancé un show privé (les autres ont été expulsés).`
   });
+
+  // Le modèle peut entrer dans sa propre room privée si besoin
+  socket.join("private-" + pseudo);
+});
+
 
   socket.on("cancel-private", ({ pseudo }) => {
     privateOwner = null;
     privateActive = false;
 
-    io.emit("chat-message", {
+    // Ré-ouvrir la room publique
+    socket.join("public");
+
+    // Annonce seulement dans le salon public
+    io.to("public").emit("chat-message", {
       pseudo: "Système",
-      message: `❌ ${pseudo} a annulé son show privée.`
+      message: `❌ ${pseudo} a annulé son show privé. Le live est de nouveau public.`
     });
   });
+
 
   // Quand un client tente de rejoindre le public
   socket.on("join-public", ({ pseudo }) => {
