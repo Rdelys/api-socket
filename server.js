@@ -29,6 +29,10 @@ let viewers      = {};   // { socketId : { room, pseudo } }
 io.on("connection", socket => {
   console.log("Client connecté:", socket.id);
 
+  socket.on("modele-stop-live", (data) => {
+    // Informer tous les clients regardant ce modèle
+    io.emit("modele-stop-live", { modele_id: data.modele_id });
+  });
   /**
    * Broadcaster (public ou privé)
    */
