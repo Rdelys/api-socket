@@ -190,14 +190,14 @@ socket.on("cancel-private", ({ pseudo }) => {
   /**
    * WebRTC
    */
-  socket.on("offer", (id, message) => {
-    socket.to(id).emit("offer", socket.id, message);
+  socket.on("client-offer", (id, message) => {
+    socket.to(id).emit("client-offer", socket.id, message);
   });
-  socket.on("answer", (id, message) => {
-    socket.to(id).emit("answer", socket.id, message);
+  socket.on("client-answer", (id, message) => {
+    socket.to(id).emit("client-answer", socket.id, message);
   });
-  socket.on("candidate", (id, message) => {
-    socket.to(id).emit("candidate", socket.id, message);
+  socket.on("client-candidate", (id, message) => {
+    socket.to(id).emit("client-candidate", socket.id, message);
   });
 
   /**
