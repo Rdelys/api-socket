@@ -9,7 +9,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé
 const io = socketIO(server, {
   cors: {
-    origin: "http://localhost:3000", // ✅ domaine à remplacer en prod
+    origin: "https://livebeautyofficial.com", // ✅ domaine à remplacer en prod
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -177,6 +177,38 @@ io.on("connection", socket => {
     const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
     socket.to(room).emit("stopTyping");
   });
+
+  // client -> modele
+socket.on('client-offer', (data) => {
+  const room = data.showPriveId ? `prive-${data.showPriveId}` : 'public';
+  const modeleSocketId = broadcasters[room];
+  if (!modeleSocketId) return;
+  io.to(modeleSocketId).emit('client-offer', { from: socket.id, offer: data.offer });
+});
+
+socket.on('client-answer', (data) => {
+  const target = data.toClientSocketId;
+  if (target) {
+    io.to(target).emit('client-answer', { from: socket.id, description: data.description });
+  }
+});
+
+socket.on('client-candidate', (data) => {
+  if (data.to) {
+    io.to(data.to).emit('client-candidate', { candidate: data.candidate, to: data.to });
+  } else if (data.toRoom) {
+    const modeleSocketId = broadcasters[data.toRoom];
+    if (modeleSocketId) {
+      io.to(modeleSocketId).emit('client-candidate', { candidate: data.candidate, to: data.from });
+    }
+  }
+});
+
+socket.on('client-stop', (data) => {
+  const room = data.showPriveId ? `prive-${data.showPriveId}` : 'public';
+  const modeleSocketId = broadcasters[room];
+  if (modeleSocketId) io.to(modeleSocketId).emit('client-disconnect', { from: socket.id });
+});
 
   /**
    * === Déconnexion ===
