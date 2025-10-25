@@ -9,7 +9,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé
 const io = socketIO(server, {
   cors: {
-    origin: "https://livebeautyofficial.com", // ✅ domaine à remplacer en prod
+    origin: "http://localhost:3000", // ✅ domaine à remplacer en prod
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -197,10 +197,18 @@ io.on("connection", socket => {
       socket.to(room).emit("stopTyping");
     }
 
+    // Si c'était un broadcaster (modèle) — on supprime et on notifie la room
     Object.entries(broadcasters).forEach(([room, broadcasterId]) => {
       if (broadcasterId === socket.id) {
         delete broadcasters[room];
         console.log(`⚠️ Broadcaster déconnecté pour room ${room}`);
+
+        // Notifier tous les watchers de la room que le modèle est parti
+        // Envoi d'une charge utile simple — tu peux ajouter plus de champs si besoin
+        io.to(room).emit("modele-deconnecte", {
+          room,
+          message: "Le modèle a quitté ou coupé le show."
+        });
       }
     });
 
