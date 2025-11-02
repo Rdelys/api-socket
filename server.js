@@ -85,6 +85,8 @@ io.on("connection", socket => {
       message: `🚪 ${pseudo} a lancé un show privé (les autres ont été expulsés).`
     });
 
+      io.emit("switch-to-private", { pseudo });
+
     socket.join("private-" + pseudo);
   });
 
@@ -98,6 +100,9 @@ io.on("connection", socket => {
       pseudo: "Système",
       message: `❌ ${pseudo} a annulé son show privé. Le live est de nouveau public.`
     });
+
+      io.emit("cancel-private", { pseudo });
+
   });
 
   socket.on("join-public", ({ pseudo }) => {
