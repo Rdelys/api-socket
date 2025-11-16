@@ -9,7 +9,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé
 const io = socketIO(server, {
   cors: {
-    origin: "https://livebeautyofficial.com", // ✅ domaine à remplacer en prod
+    origin: "http://localhost:3000/", // ✅ domaine à remplacer en prod
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -41,7 +41,9 @@ io.on("connection", socket => {
    * === Broadcaster (public ou privé) ===
    */
   socket.on("broadcaster", (data = {}) => {
-    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
     broadcasters[room] = socket.id;
     socket.join(room);
     socket.to(room).emit("broadcaster");
@@ -131,7 +133,9 @@ io.on("connection", socket => {
    * === Watcher (public ou privé) ===
    */
   socket.on("watcher", (data = {}) => {
-    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
     const pseudo = data.pseudo || "Anonyme";
 
     socket.join(room);
@@ -148,7 +152,9 @@ io.on("connection", socket => {
    * === Chat (public ou privé) ===
    */
   socket.on("chat-message", (data) => {
-    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
     io.to(room).emit("chat-message", data);
   });
 
@@ -156,7 +162,9 @@ io.on("connection", socket => {
    * === Jetons envoyés ===
    */
   socket.on("jeton-sent", (data) => {
-    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
     io.to(room).emit("jeton-sent", data);
   });
 
@@ -164,7 +172,9 @@ io.on("connection", socket => {
    * === Surprise envoyée ===
    */
   socket.on("surprise-sent", (data) => {
-    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
     io.to(room).emit("surprise-sent", data);
   });
 
@@ -173,19 +183,25 @@ io.on("connection", socket => {
    */
   socket.on("typing", (data) => {
     typingUsers[socket.id] = data;
-    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
     socket.to(room).emit("typing", data);
   });
 
   socket.on("stopTyping", (data = {}) => {
     delete typingUsers[socket.id];
-    const room = data.showPriveId ? `prive-${data.showPriveId}` : "public";
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
     socket.to(room).emit("stopTyping");
   });
 
   // client -> modele
 socket.on('client-offer', (data) => {
-  const room = data.showPriveId ? `prive-${data.showPriveId}` : 'public';
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
   const modeleSocketId = broadcasters[room];
   if (!modeleSocketId) return;
   io.to(modeleSocketId).emit('client-offer', { from: socket.id, offer: data.offer });
@@ -210,7 +226,9 @@ socket.on('client-candidate', (data) => {
 });
 
 socket.on('client-stop', (data) => {
-  const room = data.showPriveId ? `prive-${data.showPriveId}` : 'public';
+const room = data.showPriveId 
+    ? `prive-${data.showPriveId}`
+    : `public-${data.modeleId}`;
   const modeleSocketId = broadcasters[room];
   if (modeleSocketId) io.to(modeleSocketId).emit('client-disconnect', { from: socket.id });
 });
@@ -229,7 +247,7 @@ socket.on('client-stop', (data) => {
 
     if (typingUsers[socket.id]) {
       const { showPriveId } = typingUsers[socket.id];
-      const room = showPriveId ? `prive-${showPriveId}` : "public";
+      const room = showPriveId ? `prive-${showPriveId}` : `public-${modeleId}`;
       delete typingUsers[socket.id];
       socket.to(room).emit("stopTyping");
     }
