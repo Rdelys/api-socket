@@ -9,7 +9,7 @@ const server = http.createServer(app);
 // Socket.IO avec CORS sécurisé
 const io = socketIO(server, {
   cors: {
-    origin: "http://localhost:3000/", // ✅ domaine à remplacer en prod
+    origin: "https://livebeautyofficial.com", // ✅ domaine à remplacer en prod
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -34,8 +34,10 @@ io.on("connection", socket => {
 
   // --- STOP LIVE ---
   socket.on("modele-stop-live", (data) => {
-    io.emit("modele-stop-live", { modele_id: data.modele_id });
-  });
+    const room = `public-${data.modele_id}`;
+    io.to(room).emit("modele-stop-live", { modele_id: data.modele_id });
+});
+
 
   /**
    * === Broadcaster (public ou privé) ===
